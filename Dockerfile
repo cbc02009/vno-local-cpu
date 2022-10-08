@@ -1,4 +1,4 @@
-FROM archlinux:base-devel
+FROM archlinux:base-devel-20221002.0.91257
 
 EXPOSE 14366
 
