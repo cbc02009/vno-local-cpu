@@ -1,28 +1,41 @@
-FROM golang:1.18 AS build
+FROM archlinux:base-devel
 
-WORKDIR /workspace
-ENV GO111MODULE=on
+EXPOSE 14366
 
-COPY *.go go.mod *.sum ./
+# Setting the working directory to /app
+WORKDIR /app
 
-# Build
-RUN go mod download
+# Install requirements
+RUN pacman -Sy
+RUN pacman -S --needed --noconfirm git python python-pip p7zip
 
-RUN CGO_ENABLED=0 go build -o app -ldflags '-w -extldflags "-static"' .
+# Install requirements for flaskServer.py
+RUN pip install flask flask_cors sentencepiece
 
-#Test
-RUN  CCGO_ENABLED=0 go test -v .
+# Install fairseq
+RUN git clone -b v0.12.2 https://github.com/facebookresearch/fairseq.git
 
-# Use distroless as minimal base image to package the manager binary
-# Refer to https://github.com/GoogleContainerTools/distroless for more details
-# debug tag adds a shell (not recommended for prod)
-FROM gcr.io/distroless/static:nonroot
-WORKDIR /
-COPY --from=build /workspace/app /app/app
-USER nonroot:nonroot
+# Install fairseq requirements
+WORKDIR /app/fairseq
+RUN pip install --editable ./
 
-ENTRYPOINT ["/app/app"]
+# Copy flask.py and translation files
+COPY flaskServer.py /app/fairseq
+COPY japaneseModel /app/fairseq/japaneseModel
+COPY spmModels /app/fairseq/spmModels
+
+# Copy and extract pretrain
+WORKDIR /tmp
+COPY ./pretrain /tmp/
+RUN 7z x -o/app/fairseq/japaneseModel big.pretrain.7z.001
+
+# Cleanup
+RUN pacman -R --noconfirm git p7zip
+RUN rm -rf /tmp/*
+
+WORKDIR /app
+CMD python ./fairseq/flaskServer.py
 
 ARG IMAGE_SOURCE
 #https://github.com/k8s-at-home/template-container-image
-LABEL org.opencontainers.image.source $IMAGE_SOURCE 
+LABEL org.opencontainers.image.source $IMAGE_SOURCE
