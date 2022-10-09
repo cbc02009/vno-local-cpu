@@ -7,7 +7,7 @@ WORKDIR /app
 
 # Install requirements
 RUN pacman -Sy
-RUN pacman -S --needed --noconfirm git python python-pip p7zip
+RUN pacman -S --needed --noconfirm git python python-pip p7zip micro
 
 # Install requirements for flaskServer.py
 RUN pip install flask flask_cors sentencepiece
